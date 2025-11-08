@@ -6,8 +6,14 @@
   <title>Homework Assistant Chatbot</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <style>
-    .chatbot-message-user { background-color: #dcfce7; align-self: flex-end; }
-    .chatbot-message-ai { background-color: #e0f2fe; align-self: flex-start; }
+    .chatbot-message-user {
+      background-color: #dcfce7;
+      align-self: flex-end;
+    }
+    .chatbot-message-ai {
+      background-color: #e0f2fe;
+      align-self: flex-start;
+    }
   </style>
 </head>
 
@@ -32,10 +38,14 @@
   </div>
 
   <script>
-    // ✅ Correct API endpoint and key
-    const GOOGLE_API_KEY = "AIzaSyA3shwKOxb-gWm2IhmBYx3LyN4r1S4g1FM";
-    const GOOGLE_API_ENDPOINT =
-      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=";
+    // ✅ Google Gemini API Config
+    const GOOGLE_API_KEY = "YOUR_API_KEY_HERE"; // replace with your Gemini API key
+    const GOOGLE_API_URL =
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
+      GOOGLE_API_KEY;
+
+    // ✅ Use a public CORS proxy (for browser testing only)
+    const PROXY_URL = "https://corsproxy.io/?";
 
     const chatMessages = document.getElementById("chat-messages");
     const userInput = document.getElementById("user-input");
@@ -43,14 +53,6 @@
 
     sendButton.addEventListener("click", sendMessage);
     userInput.addEventListener("keypress", (e) => e.key === "Enter" && sendMessage());
-
-    async function sendMessage() {
-      const message = userInput.value.trim();
-      if (!message) return;
-      appendMessage(message, "user");
-      userInput.value = "";
-      await getAIResponse(message);
-    }
 
     function appendMessage(text, sender) {
       const div = document.createElement("div");
@@ -73,33 +75,46 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+      appendMessage(message, "user");
+      userInput.value = "";
+      await getAIResponse(message);
+    }
+
     async function getAIResponse(userMessage) {
-      let aiResponse = "Sorry, I couldn't get a response from the AI.";
+      appendMessage("Thinking...", "ai");
 
       try {
-        const response = await fetch(GOOGLE_API_ENDPOINT + GOOGLE_API_KEY, {
+        const response = await fetch(PROXY_URL + GOOGLE_API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: userMessage }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
-          })
+            generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
+          }),
         });
 
         const data = await response.json();
-        console.log("API response:", data);
+        console.log("Gemini response:", data);
 
+        // Remove the "Thinking..." message
+        chatMessages.lastChild.remove();
+
+        let aiResponse = "Sorry, I couldn’t generate a response.";
         if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
           aiResponse = data.candidates[0].content.parts[0].text.trim();
         } else if (data.error) {
-          aiResponse = "Error: " + data.error.message;
+          aiResponse = "⚠️ Error: " + data.error.message;
         }
-      } catch (err) {
-        console.error("Fetch error:", err);
-        aiResponse = "Connection error — check API key or CORS.";
-      }
 
-      appendMessage(aiResponse, "ai");
+        appendMessage(aiResponse, "ai");
+      } catch (error) {
+        console.error("Fetch error:", error);
+        chatMessages.lastChild.remove();
+        appendMessage("⚠️ Network or CORS error. Try again.", "ai");
+      }
     }
   </script>
 </body>
